@@ -5,6 +5,7 @@ Usage:
     pandoc --filter ./minted.py -o myfile.tex myfile.md
 '''
 
+import string
 from string import Template
 from pandocfilters import toJSONFilter, RawBlock, RawInline
 
@@ -78,7 +79,24 @@ def minted(key, value, format, meta):
         return [RawBlock(format, template.substitute(code))]
 
     elif key == 'Code':
-        template = Template('\\mintinline[$attributes]{$language}{$contents}')
+        contents = code['contents']
+        if '{' in contents or '}' in contents:
+            # Try some other delimiter.
+            for c in '|!@#^&*-=+' + string.digits + string.ascii_letters:
+                if c not in contents:
+                    code['start_delim'] = code['end_delim'] = c
+                    break
+            else:
+                raise ValueError(
+                    'Unable to determine delimiter to place around %r.' % (
+                        contents, ))
+        else:
+            code['start_delim'] = '{'
+            code['end_delim'] = '}'
+
+        template = Template(
+            '\\mintinline[$attributes]{$language}'
+            '$start_delim$contents$end_delim')
         return [RawInline(format, template.substitute(code))]
 
 
