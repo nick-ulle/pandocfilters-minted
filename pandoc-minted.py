@@ -5,6 +5,7 @@ Usage:
     pandoc --filter ./minted.py -o myfile.tex myfile.md
 '''
 
+import string
 from string import Template
 from pandocfilters import toJSONFilter, RawBlock, RawInline
 
@@ -63,23 +64,40 @@ def minted(key, value, format, meta):
     if format != 'latex':
         return
 
-    # Determine what kind of code object this is.
-    if key == 'CodeBlock':
-        template = Template(
-            '\\begin{minted}[$attributes]{$language}\n$contents\n\end{minted}'
-        )
-        Element = RawBlock
-    elif key == 'Code':
-        template = Template('\\mintinline[$attributes]{$language}{$contents}')
-        Element = RawInline
-    else:
+    if key not in ('CodeBlock', 'Code'):
         return
 
     settings = unpack_metadata(meta)
 
     code = unpack_code(value, settings['language'])
 
-    return [Element(format, template.substitute(code))]
+    # Determine what kind of code object this is.
+    if key == 'CodeBlock':
+        template = Template(
+            '\\begin{minted}[$attributes]{$language}\n$contents\n\\end{minted}'
+        )
+        return [RawBlock(format, template.substitute(code))]
+
+    elif key == 'Code':
+        contents = code['contents']
+        if '{' in contents or '}' in contents:
+            # Try some other delimiter.
+            for c in '|!@#^&*-=+' + string.digits + string.ascii_letters:
+                if c not in contents:
+                    code['start_delim'] = code['end_delim'] = c
+                    break
+            else:
+                raise ValueError(
+                    'Unable to determine delimiter to place around %r.' % (
+                        contents, ))
+        else:
+            code['start_delim'] = '{'
+            code['end_delim'] = '}'
+
+        template = Template(
+            '\\mintinline[$attributes]{$language}'
+            '$start_delim$contents$end_delim')
+        return [RawInline(format, template.substitute(code))]
 
 
 if __name__ == '__main__':
