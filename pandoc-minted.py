@@ -63,23 +63,23 @@ def minted(key, value, format, meta):
     if format != 'latex':
         return
 
-    # Determine what kind of code object this is.
-    if key == 'CodeBlock':
-        template = Template(
-            '\\begin{minted}[$attributes]{$language}\n$contents\n\\end{minted}'
-        )
-        Element = RawBlock
-    elif key == 'Code':
-        template = Template('\\mintinline[$attributes]{$language}{$contents}')
-        Element = RawInline
-    else:
+    if key not in ('CodeBlock', 'Code'):
         return
 
     settings = unpack_metadata(meta)
 
     code = unpack_code(value, settings['language'])
 
-    return [Element(format, template.substitute(code))]
+    # Determine what kind of code object this is.
+    if key == 'CodeBlock':
+        template = Template(
+            '\\begin{minted}[$attributes]{$language}\n$contents\n\\end{minted}'
+        )
+        return [RawBlock(format, template.substitute(code))]
+
+    elif key == 'Code':
+        template = Template('\\mintinline[$attributes]{$language}{$contents}')
+        return [RawInline(format, template.substitute(code))]
 
 
 if __name__ == '__main__':
